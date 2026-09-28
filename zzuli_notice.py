@@ -9,10 +9,10 @@ URLS = [
         "name": "电子信息学院院内通知",
         "url": "http://dzxx.zzuli.edu.cn/p23451c5034/list.htm"
     },
-    {
-        "name": "研究生院招生通知",
-        "url": "https://yjsc.zzuli.edu.cn/2878/list.psp"
-    },
+   #{
+        #"name": "研究生院招生通知",
+        #"url": "https://yjsc.zzuli.edu.cn/2878/list.psp"
+    #},
     {
         "name": "校级校长办通知公告",
         "url": "https://yuanban.zzuli.edu.cn/_t94/2734/list26.psp"
