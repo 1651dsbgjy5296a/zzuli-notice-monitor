@@ -2,7 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import os
-
+from urllib.parse import urlparse
 # ====================== 配置区 ======================
 URLS = [
     {
@@ -32,18 +32,15 @@ DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 RECORD_FILE = "history.json"
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 # ====================================================
-
 def load_history():
     try:
         with open(RECORD_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return {}
-
 def save_history(history):
     with open(RECORD_FILE, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
-
 def get_page_notice(url_info):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -61,15 +58,15 @@ def get_page_notice(url_info):
         link = a_tag.get("href")
         if not link or not title:
             continue
-        # 拼接完整链接
+        # 拼接完整链接，使用urlparse修复
+        parsed = urlparse(url_info["url"])
+        domain = f"{parsed.scheme}://{parsed.netloc}"
         if link.startswith("/"):
-            domain = url_info["url"].split("/",3)[0] + "//" + url_info["url"].split("/")[2]
             link = domain + link
         elif not link.startswith("http"):
             link = url_info["url"].rsplit("/",1)[0] + "/" + link
         res.append({"title": title, "link": link, "source": url_info["name"]})
     return res
-
 def get_notice_detail(notice_url):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -81,7 +78,6 @@ def get_notice_detail(notice_url):
     body_text = soup.get_text(strip=True, separator=" ")
     # 限制长度，防止文本过长
     return body_text[:2500]
-
 def ai_summary(content):
     if not DEEPSEEK_API_KEY:
         return "无DeepSeek密钥，无法生成摘要"
@@ -99,21 +95,20 @@ def ai_summary(content):
         "temperature": 0.3
     }
     headers = {"Authorization": f"Bearer {DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
-    resp = requests.post(DEEPSEEK_URL, json=payload, headers=headers, timeout=30)
-    data = resp.json()
     try:
+        resp = requests.post(DEEPSEEK_URL, json=payload, headers=headers, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
         return data["choices"][0]["message"]["content"].strip()
     except Exception as e:
         print(f"摘要生成失败：{e}")
         return "摘要生成失败"
-
 def send_wechat(title, content):
     if not SERVERCHAN_SENDKEY:
         print("无SendKey，跳过推送")
         return
     data = {"title": title, "desp": content}
     requests.post(f"https://sctapi.ftqq.com/{SERVERCHAN_SENDKEY}.send", data=data)
-
 def main():
     history = load_history()
     new_notices = []
@@ -139,6 +134,5 @@ def main():
     for n in new_notices:
         msg += f"【{n['title']}】\n来源：{n['source']}\n摘要：{n['summary']}\n直达链接：{n['link']}\n\n"
     send_wechat("✅ 轻大新通知", msg)
-
 if __name__ == "__main__":
     main()
